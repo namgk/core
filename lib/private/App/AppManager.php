@@ -213,7 +213,7 @@ class AppManager implements IAppManager {
 	 */
 	public function enableApp($appId) {
 		if(!$this->isInstalled($appId)) {
-			return;
+			throw new \Exception("$appId can't be enabled since it is not installed.");
 		}
 		$this->installedAppsCache[$appId] = 'yes';
 		$this->appConfig->setValue($appId, 'enabled', 'yes');
