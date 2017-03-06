@@ -212,7 +212,8 @@ class AppManager implements IAppManager {
 	 * @param string $appId
 	 */
 	public function enableApp($appId) {
-		if(!$this->isInstalled($appId)) {
+		if(!Installer::isInstalled($appId)) {
+			//print_r($this->getInstalledApps());
 			throw new \Exception("$appId can't be enabled since it is not installed.");
 		}
 		$this->installedAppsCache[$appId] = 'yes';
