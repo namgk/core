@@ -107,7 +107,7 @@ class ManagerTest extends TestCase {
 	public function testEnableApp() {
 		$this->expectClearCache();
 		// making sure "files_trashbin" is disabled
-		if ($this->manager->isInstalled('files_trashbin')) {
+		if ($this->manager->isEnabledForUser('files_trashbin')) {
 			$this->manager->disableApp('files_trashbin');
 		}
 		$this->manager->enableApp('files_trashbin');
