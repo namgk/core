@@ -103,8 +103,24 @@ class SharesPlugin extends \Sabre\DAV\ServerPlugin {
 		$this->server->on('propFind', [$this, 'handleGetProperties']);
 	}
 
+	/*
+	 * Converts IShare[] to int[][] hash map
+	 */
+	private function convertToHashMap($allShares, $initShareTypes) {
+		// Use some already preinitialized hash map which may contain some values e.g. empty arrays
+		$shareTypes = $initShareTypes;
+		
+		foreach ($allShares as $share) {
+			$currentNodeID = $share->getNodeId();
+			$currentShareType = $share->getShareType();
+			$shareTypes[$currentNodeID][$currentShareType] = true;
+		}
+		
+		return $shareTypes;
+	}
+	
 	/**
-	 * Update cachedShareTypes for specific nodeIDs
+	 * Get all shares for specific nodeIDs
 	 *
 	 * @param int[] array of folder/file nodeIDs
 	 */
@@ -122,13 +138,8 @@ class SharesPlugin extends \Sabre\DAV\ServerPlugin {
 			$requestedShareTypes,
 			$nodeIDs
 		);
-
-		// Cache obtained share types
-		foreach ($allShares as $share) {
-			$currentNodeID = $share->getNodeId();
-			$currentShareType = $share->getShareType();
-			$this->cachedShareTypes[$currentNodeID][$currentShareType] = true;
-		}
+		
+		return $allShares;
 	}
 
 	/**
@@ -157,8 +168,10 @@ class SharesPlugin extends \Sabre\DAV\ServerPlugin {
 			$folderNodeID = intval($folderNode->getId());
 			$nodeIdsArray = [$folderNodeID];
 
+			// Initialize share types array for this node in case there would be no shares for this node
+			$initShareTypes[$folderNodeID] = [];
+			
 			// Get IDs for all children of the parent folder
-			$this->cachedShareTypes[$folderNodeID] = [];
 			foreach ($children as $childNode) {
 				// Ensure that they are of File or Folder type
 				if (!($childNode instanceof \OCP\Files\File) &&
@@ -169,24 +182,30 @@ class SharesPlugin extends \Sabre\DAV\ServerPlugin {
 				// Put node ID into an array and initialize cache for it
 				$nodeId = intval($childNode->getId());
 				array_push($nodeIdsArray, $nodeId);
-				$this->cachedShareTypes[$nodeId] = [];
+				
+				// Initialize share types array for this node in case there would be no shares for this node
+				$initShareTypes[$nodeId] = [];
 			}
 
-			// Cache share-types obtaining them from DB
-			$this->getNodesShareTypes($nodeIdsArray);
+			// Get all shares for specified nodes obtaining them from DB
+			$returnedShares = $this->getNodesShareTypes($nodeIdsArray);
+			
+			// Convert to hash map and cache so that $propFind->handle() can use it
+			$this->cachedShareTypes = $this->convertToHashMap($returnedShares, $initShareTypes);
 		}
 
 		$propFind->handle(self::SHARETYPES_PROPERTYNAME, function() use ($sabreNode) {
-			$shareTypesHash = [];
 			if (isset($this->cachedShareTypes[$sabreNode->getId()])) {
 				// Share types in cache for this node
 				$shareTypesHash = $this->cachedShareTypes[$sabreNode->getId()];
 			} else {
 				// Share types for this node not in cache, obtain if any
 				$nodeId = $this->userFolder->get($sabreNode->getPath())->getId();
-				$this->cachedShareTypes[$nodeId] = [];
-				$this->getNodesShareTypes([$nodeId]);
-				$shareTypesHash = $this->cachedShareTypes[$nodeId];
+				$returnedShares = $this->getNodesShareTypes([$nodeId]);
+
+				// Initialize share types for this node and obtain share types hash if any
+				$initShareTypes[$nodeId] = [];
+				$shareTypesHash = $this->convertToHashMap($returnedShares, $initShareTypes)[$nodeId];
 			}
 			$shareTypes = array_keys($shareTypesHash);
 

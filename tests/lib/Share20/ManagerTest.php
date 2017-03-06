@@ -1947,10 +1947,7 @@ class ManagerTest extends \Test\TestCase {
 	}
 
 	public function testGetAllSharesBy() {
-		$share1 = $this->manager->newShare();
-		$share2 = $this->manager->newShare();
-		$share3 = $this->manager->newShare();
-
+		$share = $this->manager->newShare();
 
 		$node = $this->createMock('OCP\Files\Folder');
 		$node->expects($this->any())
@@ -1975,17 +1972,14 @@ class ManagerTest extends \Test\TestCase {
 				$this->anything(),
 				$this->anything(),
 				$this->equalTo(true)
-			)->will($this->onConsecutiveCalls(
-				array_fill(0, 100, $share1),
-				array_fill(0, 100, $share2),
-				array_fill(0, 1, $share3)));
+			)->willReturn(array_fill(0, 201, $share));
 
 		$shares = $this->manager->getAllSharesBy('user', [\OCP\Share::SHARE_TYPE_USER], $nodes, true);
 
 		$this->assertCount(201, $shares);
-		$this->assertSame($share1, $shares[0]);
-		$this->assertSame($share2, $shares[100]);
-		$this->assertSame($share3, $shares[200]);
+		$this->assertSame($share, $shares[0]);
+		$this->assertSame($share, $shares[100]);
+		$this->assertSame($share, $shares[200]);
 	}
 
 	public function testGetAllSharesByExpiration() {
@@ -1993,8 +1987,7 @@ class ManagerTest extends \Test\TestCase {
 			->setMethods(['deleteShare'])
 			->getMock();
 
-		$share1 = $this->manager->newShare();
-		$share2 = $this->manager->newShare();
+		$share = $this->manager->newShare();
 
 		$shareExpired = $this->createMock(IShare::class);
 		$shareExpired->method('getShareType')->willReturn(\OCP\Share::SHARE_TYPE_LINK);
@@ -2018,6 +2011,10 @@ class ManagerTest extends \Test\TestCase {
 			array_push($nodes, $node->getId());
 		}
 
+		// Add 201 shares, including expired
+		$fillShares = array_fill(0, 200, $share);
+		$fillShares[] = $shareExpired;
+
 		// Test chunking here
 		$this->defaultProvider->expects($this->any())
 			->method('getAllSharesBy')
@@ -2026,10 +2023,7 @@ class ManagerTest extends \Test\TestCase {
 				$this->anything(),
 				$this->anything(),
 				$this->equalTo(true)
-			)->will($this->onConsecutiveCalls(
-				array_fill(0, 100, $share1),
-				array_fill(0, 100, $share2),
-				array_fill(0, 1, $shareExpired)));
+			)->willReturn($fillShares);
 
 		$manager->expects($this->any())
 			->method('deleteShare')
@@ -2039,8 +2033,8 @@ class ManagerTest extends \Test\TestCase {
 
 		// One share whould be expired
 		$this->assertCount(200, $shares);
-		$this->assertSame($share1, $shares[0]);
-		$this->assertSame($share2, $shares[100]);
+		$this->assertSame($share, $shares[0]);
+		$this->assertSame($share, $shares[100]);
 		$this->assertNotContains($shareExpired, $shares);
 	}
 

@@ -529,9 +529,20 @@ class FederatedShareProviderTest extends \Test\TestCase {
 			->setNode($node);
 		$this->provider->create($share2);
 
+		for($i = 0; $i < 200; $i++) {
+			$receiver = $i + "user2@server.com";
+			$share2 = $this->shareManager->newShare();
+			$share2->setSharedWith(strval($receiver))
+				->setSharedBy('sharedBy')
+				->setShareOwner('shareOwner')
+				->setPermissions(19)
+				->setNode($node);
+			$this->provider->create($share2);
+		}
+
 		$shares = $this->provider->getAllSharesBy('shareOwner', [\OCP\Share::SHARE_TYPE_REMOTE], [$node->getId()], true);
 
-		$this->assertCount(2, $shares);
+		$this->assertCount(202, $shares);
 	}
 
 	public function testGetSharedBy() {

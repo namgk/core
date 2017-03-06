@@ -900,40 +900,28 @@ class Manager implements IManager {
 			array_push($providerIdMap[$providerId], $shareType);
 		}
 
+		$today = new \DateTime();
 		foreach ($providerIdMap as $providerId => $shareTypeArray) {
 			// Get provider from cache
 			$provider = $this->factory->getProvider($providerId);
-			
-			// Batch Node IDs into chunks of 100 and get all shares for these nodes
-			$batchNodeIDs = array_chunk($nodeIDs, 100);
-			foreach ($batchNodeIDs as $nodeIDsChunk) {
-				$queriedShares = $provider->getAllSharesBy($userId, $shareTypeArray, $nodeIDsChunk, $reshares);
-				foreach ($queriedShares as $queriedShare){
-					array_push($shares, $queriedShare);
-				}
-			}
 
+			$queriedShares = $provider->getAllSharesBy($userId, $shareTypeArray, $nodeIDs, $reshares);
+			foreach ($queriedShares as $queriedShare){
+				if ($queriedShare->getShareType() === \OCP\Share::SHARE_TYPE_LINK && $queriedShare->getExpirationDate() !== null &&
+					$queriedShare->getExpirationDate() <= $today
+				) {
+					try {
+						$this->deleteShare($queriedShare);
+					} catch (NotFoundException $e) {
+						//Ignore since this basically means the share is deleted
+					}
+					continue;
+				}
+				array_push($shares, $queriedShare);
+			}
 		}
 
-		// Ensure to delete expired shares. Please note that here $node is obligatory and we will receive only shares belonging to one node
-		$shares2 = [];
-		$today = new \DateTime();
-		foreach ($shares as $share) {
-			// Check if the share is expired and if so delete it
-			if ($share->getShareType() === \OCP\Share::SHARE_TYPE_LINK && $share->getExpirationDate() !== null &&
-				$share->getExpirationDate() <= $today
-			) {
-				try {
-					$this->deleteShare($share);
-				} catch (NotFoundException $e) {
-					//Ignore since this basically means the share is deleted
-				}
-				continue;
-			}
-			$shares2[] = $share;
-		}
-
-		return $shares2;
+		return $shares;
 	}
 
 	/**

@@ -1225,13 +1225,29 @@ class DefaultShareProviderTest extends TestCase {
 			]);
 		$this->assertEquals(1, $qb->execute());
 
+		for($i = 0; $i < 200; $i++) {
+			$receiver = "sharedWith" + $i;
+			$qb->insert('share')
+				->values([
+					'share_type' => $qb->expr()->literal(Share::SHARE_TYPE_USER),
+					'share_with' => $qb->expr()->literal($receiver),
+					'uid_owner' => $qb->expr()->literal('shareOwner'),
+					'uid_initiator' => $qb->expr()->literal('sharedBy'),
+					'item_type'   => $qb->expr()->literal('file'),
+					'file_source' => $qb->expr()->literal(42),
+					'file_target' => $qb->expr()->literal('myTarget'),
+					'permissions' => $qb->expr()->literal(13),
+				]);
+			$this->assertEquals(1, $qb->execute());
+		}
+
 		$file = $this->createMock(File::class);
 		$file->method('getId')->willReturn(42);
 		$this->rootFolder->method('getUserFolder')->with('shareOwner')->will($this->returnSelf());
 		$this->rootFolder->method('getById')->with(42)->willReturn([$file]);
 
 		$share = $this->provider->getAllSharesBy('sharedBy', [Share::SHARE_TYPE_USER], [$file->getId()], false);
-		$this->assertCount(1, $share);
+		$this->assertCount(201, $share);
 
 		/** @var Share\IShare $share */
 		$share = $share[0];
